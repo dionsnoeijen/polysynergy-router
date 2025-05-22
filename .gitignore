@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pkl
+*.db
+*.sqlite3
+
+# Virtualenv
+.venv/
+env/
+venv/
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# Env files
+.env
+.env.*
+
+# Docker
+*.log
+*.pid
+*.gz
+*.swp
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitmodules
+*.orig
+
+# Node (voor als je tools als npm/pnpm in de backend gebruikt)
+node_modules/
+.pnpm-store/
+dist/
+build/
