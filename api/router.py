@@ -39,7 +39,7 @@ async def catch_all_router(request: Request, full_path: str):
         matched = match_route(full_path, request.method, routes)
 
         if not matched:
-            raise HTTPException(status_code=404, detail="No route matched")
+            raise HTTPException(status_code=404, detail="Not found")
 
         function_name = f"{matched['node_setup_version_id']}_{stage}"
 
