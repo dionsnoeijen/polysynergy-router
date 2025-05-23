@@ -38,6 +38,9 @@ async def catch_all_router(request: Request, full_path: str):
         routes = get_routes(project_id, stage)
         matched = match_route(full_path, request.method, routes)
 
+        if matched == "method_not_allowed":
+            raise HTTPException(status_code=405, detail="Method Not Allowed")
+
         if not matched:
             raise HTTPException(status_code=404, detail="Not found")
 
@@ -72,4 +75,4 @@ async def catch_all_router(request: Request, full_path: str):
         raise e
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")

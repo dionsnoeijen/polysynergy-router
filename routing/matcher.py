@@ -22,16 +22,22 @@ def convert_segments_to_regex(segments: List[Segment]) -> str:
     return "^" + "/".join(regex_parts) + "$"
 
 
-def match_route(path: str, method: str, routes: List[Route]) -> Optional[Dict]:
+def match_route(path: str, method: str, routes: List[Route]) -> Optional[Dict] | str:
+    method = method.upper()
+    path_matched = False
+
     for route in routes:
-        if route.method.upper() != method.upper():
-            continue
         pattern = convert_segments_to_regex(route.segments)
-        match = re.match(pattern, path)
-        if match:
-            return {
-                "route_id": route.id,
-                "node_setup_version_id": route.node_setup_version_id,
-                "variables": match.groupdict()
-            }
+        if re.match(pattern, path):
+            path_matched = True
+            if route.method.upper() == method:
+                return {
+                    "route_id": route.id,
+                    "node_setup_version_id": route.node_setup_version_id,
+                    "tenant_id": route.tenant_id,
+                    "variables": re.match(pattern, path).groupdict()
+                }
+
+    if path_matched:
+        return "method_not_allowed"
     return None
