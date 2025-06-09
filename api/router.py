@@ -4,6 +4,7 @@ import os
 
 from fastapi import Request, HTTPException
 from fastapi.routing import APIRouter
+from fastapi.responses import JSONResponse, Response
 
 from routing.cache import get_routes
 from routing.matcher import match_route
@@ -66,7 +67,22 @@ async def catch_all_router(request: Request, full_path: str):
             )
 
             response_payload = json.loads(response["Payload"].read())
-            return response_payload
+
+            body = response_payload.get("body", "")
+            headers = response_payload.get("headers", {})
+            status_code = response_payload.get("statusCode", 200)
+            is_base64 = response_payload.get("isBase64Encoded", False)
+
+            content_type = headers.get("Content-Type", "text/plain")
+
+            if is_base64:
+                import base64
+                body = base64.b64decode(body)
+
+            if content_type == "application/json":
+                return JSONResponse(content=json.loads(body), status_code=status_code, headers=headers)
+            else:
+                return Response(content=body, status_code=status_code, headers=headers, media_type=content_type)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lambda invocation failed: {str(e)}")
 
