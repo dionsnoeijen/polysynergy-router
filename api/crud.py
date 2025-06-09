@@ -3,7 +3,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from core.config import AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DYNAMODB_ROUTING_TABLE
-from models.route import SingleRouteUpdate, DeactivateRouteRequest
+from models.route import SingleRouteUpdate, DeactivateRouteRequest, DeleteRouteRequest
 from routing.cache import routing_cache
 
 router = APIRouter()
@@ -76,7 +76,7 @@ def deactivate_route(data: DeactivateRouteRequest):
         raise HTTPException(status_code=500, detail=f"Failed to deactivate route: {str(e)}")
 
 @router.delete("/delete-route")
-def delete_route(data: SingleRouteUpdate):
+def delete_route(data: DeleteRouteRequest):
     try:
         pk = f"routing#{data.project_id}"
         sk = f"route#{data.route.id}"

@@ -8,5 +8,5 @@ app = FastAPI()
 def health():
     return {"ok": True}
 
-app.include_router(crud_router, prefix="/__router-internal")
+app.include_router(crud_router, prefix="/__internal")
 app.include_router(routing_router)

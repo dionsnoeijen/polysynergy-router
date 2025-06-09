@@ -22,6 +22,13 @@ class SingleRouteUpdate(BaseModel):
     stage: str
     route: Route
 
+class RouteRef(BaseModel):
+    id: str
+
+class DeleteRouteRequest(BaseModel):
+    project_id: str
+    route: RouteRef
+
 class MinimalRoute(BaseModel):
     id: str
 
