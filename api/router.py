@@ -22,6 +22,7 @@ lambda_client = boto3.client(
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
 )
 
+
 def parse_subdomain(host: str) -> tuple[str, str]:
     try:
         base = host.split(".")[0]
@@ -29,6 +30,7 @@ def parse_subdomain(host: str) -> tuple[str, str]:
         return project_id, stage
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid subdomain format")
+
 
 @router.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def catch_all_router(request: Request, full_path: str):
@@ -80,11 +82,16 @@ async def catch_all_router(request: Request, full_path: str):
                 body = base64.b64decode(body)
 
             if content_type == "application/json":
-                return JSONResponse(content=json.loads(body), status_code=status_code, headers=headers)
+                try:
+                    return JSONResponse(content=json.loads(body), status_code=status_code, headers=headers)
+                except json.JSONDecodeError:
+                    logger.warning("Invalid JSON in response body despite Content-Type: application/json")
+                    return Response(content=body, status_code=status_code, headers=headers,
+                                    media_type="application/json")
             else:
                 return Response(content=body, status_code=status_code, headers=headers, media_type=content_type)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Lambda invocation failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Invocation failed: {str(e)}")
 
 
     except HTTPException as e:
