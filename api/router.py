@@ -9,9 +9,9 @@ from fastapi.responses import JSONResponse, Response
 from routing.cache import get_routes
 from routing.matcher import match_route
 
-import logging
+from core.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -24,30 +24,55 @@ lambda_client = boto3.client(
 
 
 def parse_subdomain(host: str) -> tuple[str, str]:
+    logger.debug(f"Parsing subdomain from host: '{host}'")
     try:
         base = host.split(".")[0]
         project_id, stage = base.rsplit("-", 1)
+        logger.info(f"Parsed subdomain: project_id='{project_id}', stage='{stage}'")
         return project_id, stage
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to parse subdomain from host '{host}': {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid subdomain format")
 
 
 @router.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def catch_all_router(request: Request, full_path: str):
+    logger.info(f"Incoming request: {request.method} {full_path}")
+    logger.debug(f"Headers: {dict(request.headers)}")
+    
     try:
         host = request.headers.get("host", "")
+        if not host:
+            logger.error("No host header provided in request")
+            raise HTTPException(status_code=400, detail="Host header required")
+            
         project_id, stage = parse_subdomain(host)
 
+        logger.info(f"Fetching routes for project='{project_id}', stage='{stage}'")
         routes = get_routes(project_id, stage)
+        logger.info(f"Found {len(routes)} routes for project='{project_id}', stage='{stage}'")
+        
         matched = match_route(full_path, request.method, routes)
 
         if matched == "method_not_allowed":
+            logger.warning(f"Method not allowed: {request.method} {full_path}")
             raise HTTPException(status_code=405, detail="Method Not Allowed")
 
         if not matched:
+            logger.error(f"No route found for: {request.method} {full_path} (project='{project_id}', stage='{stage}')")
+            # Log available routes for debugging
+            if routes:
+                logger.debug("Available routes:")
+                for r in routes:
+                    segments_desc = "/".join([s.name if s.type == "static" else f"{{{s.name}}}" for s in r.segments])
+                    logger.debug(f"  - {r.method} /{segments_desc} (id: {r.id})")
+            else:
+                logger.debug("No routes configured for this project/stage")
             raise HTTPException(status_code=404, detail="Not found")
 
         function_name = f"node_setup_{matched['node_setup_version_id']}_{stage}"
+        logger.info(f"Route matched successfully. Invoking Lambda: {function_name}")
+        logger.debug(f"Route details: id={matched['route_id']}, variables={matched['variables']}")
 
         payload = {
             "path": full_path,
@@ -60,8 +85,11 @@ async def catch_all_router(request: Request, full_path: str):
             "tenant_id": matched["tenant_id"],
             "body": (await request.body()).decode("utf-8") if request.method in ["POST", "PUT", "PATCH"] else None,
         }
+        
+        logger.debug(f"Lambda payload size: {len(json.dumps(payload))} bytes")
 
         try:
+            logger.info(f"Invoking Lambda function: {function_name}")
             response = lambda_client.invoke(
                 FunctionName=function_name,
                 InvocationType="RequestResponse",
@@ -69,18 +97,24 @@ async def catch_all_router(request: Request, full_path: str):
             )
 
             response_payload = json.loads(response["Payload"].read())
+            logger.info(f"Lambda invocation successful, received response")
 
             body = response_payload.get("body", "")
             headers = response_payload.get("headers", {})
             status_code = response_payload.get("statusCode", 200)
             is_base64 = response_payload.get("isBase64Encoded", False)
+            
+            logger.debug(f"Lambda response: status={status_code}, headers={headers}, is_base64={is_base64}")
 
             content_type = headers.get("Content-Type", "text/plain")
 
             if is_base64:
                 import base64
                 body = base64.b64decode(body)
+                logger.debug("Decoded base64 response body")
 
+            logger.info(f"Returning response: status={status_code}, content_type={content_type}")
+            
             if content_type == "application/json":
                 try:
                     return JSONResponse(content=json.loads(body), status_code=status_code, headers=headers)
@@ -91,11 +125,14 @@ async def catch_all_router(request: Request, full_path: str):
             else:
                 return Response(content=body, status_code=status_code, headers=headers, media_type=content_type)
         except Exception as e:
+            logger.error(f"Lambda invocation failed: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Invocation failed: {str(e)}")
 
 
     except HTTPException as e:
+        logger.warning(f"HTTP exception: {e.status_code} - {e.detail}")
         raise e
 
     except Exception as e:
+        logger.error(f"Unexpected error in catch_all_router: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
