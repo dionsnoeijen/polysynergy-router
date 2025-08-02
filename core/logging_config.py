@@ -91,13 +91,5 @@ def setup_logging(log_level: str = None, json_logs: bool = None):
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance with extra functionality"""
-    logger = logging.getLogger(name)
-    
-    # Add method to log with extra fields
-    def log_with_context(level: int, msg: str, **kwargs):
-        extra = {'extra_fields': kwargs} if kwargs else {}
-        logger.log(level, msg, extra=extra)
-    
-    logger.log_with_context = log_with_context
-    return logger
+    """Get a logger instance"""
+    return logging.getLogger(name)

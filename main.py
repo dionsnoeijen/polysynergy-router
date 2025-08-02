@@ -29,16 +29,7 @@ async def log_requests(request: Request, call_next):
     
     # Log request details
     start_time = time.time()
-    logger.info(
-        f"Request started",
-        extra={
-            "request_id": request_id,
-            "method": request.method,
-            "path": request.url.path,
-            "query_params": str(request.query_params),
-            "client_host": request.client.host if request.client else "unknown",
-        }
-    )
+    logger.info(f"Request started - ID: {request_id}, Method: {request.method}, Path: {request.url.path}")
     
     # Add request ID to request state for use in other parts of the app
     request.state.request_id = request_id
@@ -51,14 +42,7 @@ async def log_requests(request: Request, call_next):
         duration = time.time() - start_time
         
         # Log response details
-        logger.info(
-            f"Request completed",
-            extra={
-                "request_id": request_id,
-                "status_code": response.status_code,
-                "duration_ms": round(duration * 1000, 2),
-            }
-        )
+        logger.info(f"Request completed - ID: {request_id}, Status: {response.status_code}, Duration: {round(duration * 1000, 2)}ms")
         
         # Add request ID to response headers
         response.headers["X-Request-ID"] = request_id
@@ -67,15 +51,7 @@ async def log_requests(request: Request, call_next):
         
     except Exception as e:
         duration = time.time() - start_time
-        logger.error(
-            f"Request failed",
-            extra={
-                "request_id": request_id,
-                "error": str(e),
-                "duration_ms": round(duration * 1000, 2),
-            },
-            exc_info=True
-        )
+        logger.error(f"Request failed - ID: {request_id}, Error: {str(e)}, Duration: {round(duration * 1000, 2)}ms", exc_info=True)
         raise
 
 @app.on_event("startup")

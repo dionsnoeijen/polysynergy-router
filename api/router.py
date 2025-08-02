@@ -148,4 +148,7 @@ async def catch_all_router(request: Request, full_path: str):
 
     except Exception as e:
         logger.error(f"Unexpected error in catch_all_router: {str(e)}", exc_info=True)
+        logger.error(f"Error type: {type(e).__name__}")
+        if "cannot unpack non-iterable coroutine object" in str(e):
+            logger.error("This error suggests an async/await issue - a coroutine is being unpacked without await")
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
