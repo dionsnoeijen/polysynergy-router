@@ -62,12 +62,12 @@ async def catch_all_router(request: Request, full_path: str):
             logger.error(f"No route found for: {request.method} {full_path} (project='{project_id}', stage='{stage}')")
             # Log available routes for debugging
             if routes:
-                logger.debug("Available routes:")
+                logger.info("Available routes:")
                 for r in routes:
                     segments_desc = "/".join([s.name if s.type == "static" else f"{{{s.name}}}" for s in r.segments])
-                    logger.debug(f"  - {r.method} /{segments_desc} (id: {r.id})")
+                    logger.info(f"  - {r.method} /{segments_desc} (id: {r.id})")
             else:
-                logger.debug("No routes configured for this project/stage")
+                logger.info("No routes configured for this project/stage")
             raise HTTPException(status_code=404, detail="Not found")
 
         function_name = f"node_setup_{matched['node_setup_version_id']}_{stage}"
