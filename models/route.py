@@ -5,7 +5,7 @@ from typing import Literal, List, Optional
 class Segment(BaseModel):
     type: Literal["static", "variable"]
     name: str
-    variable_type: Literal["string", "number", "any"] = "any"
+    variable_type: Literal["string", "number", "uuid", "any"] = "any"
 
 class Route(BaseModel):
     id: str
