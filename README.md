@@ -318,13 +318,7 @@ Each request gets a unique ID in the `X-Request-ID` response header, making it e
 
 ## 🚧 Roadmap
 
-- [ ] **Local Storage**: Remove AWS DynamoDB dependency with local database option
-- [ ] **Multiple Backend Types**: Support for HTTP services, containers, etc.
-- [ ] **Authentication**: Built-in API key and JWT support
-- [ ] **Rate Limiting**: Per-route rate limiting configuration
-- [ ] **Metrics & Monitoring**: Prometheus metrics endpoint
-- [ ] **WebSocket Support**: Route WebSocket connections
-- [ ] **Request/Response Transformation**: Modify headers and payloads
+- [ ] **Local Storage**: Make DynamoDB optional and provide a default local alternative for development
 
 ## 🤝 Contributing
 
@@ -337,8 +331,6 @@ This project will be licensed under the same terms as the PolySynergy Orchestrat
 ## 🔗 Related Projects
 
 - **PolySynergy Orchestrator**: Main orchestration platform (coming soon)
-- **PolySynergy CLI**: Command-line interface for project management
-- **PolySynergy SDK**: Development kit for building PolySynergy applications
 
 ## 📞 Support
 
