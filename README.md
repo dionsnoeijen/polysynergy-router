@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://www.polysynergy.com/ps-color-logo-with-text.svg" alt="PolySynergy" width="300"/>
+</div>
+
 # PolySynergy Router
 
 A high-performance, dynamic routing service built with FastAPI that serves as the main entry point for PolySynergy applications. The router automatically routes incoming HTTP requests to the appropriate backend services based on subdomain-based project and stage identification.
