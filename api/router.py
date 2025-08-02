@@ -83,11 +83,20 @@ async def catch_all_router(request: Request, full_path: str):
         logger.info(f"Route matched successfully. Invoking Lambda: {function_name}")
         logger.debug(f"Route details: id={matched['route_id']}, variables={matched['variables']}")
 
+        # Safely convert headers and query params to dicts
+        headers_dict = {}
+        for key, value in request.headers.items():
+            headers_dict[key] = value
+            
+        query_dict = {}
+        for key, value in request.query_params.items():
+            query_dict[key] = value
+
         payload = {
             "path": full_path,
             "method": request.method,
-            "headers": dict(request.headers),
-            "query": dict(request.query_params),
+            "headers": headers_dict,
+            "query": query_dict,
             "variables": matched["variables"],
             "project_id": project_id,
             "stage": stage,
@@ -95,14 +104,19 @@ async def catch_all_router(request: Request, full_path: str):
             "body": (await request.body()).decode("utf-8") if request.method in ["POST", "PUT", "PATCH"] else None,
         }
         
-        logger.debug(f"Lambda payload size: {len(json.dumps(payload))} bytes")
+        try:
+            payload_json = json.dumps(payload)
+            logger.debug(f"Lambda payload size: {len(payload_json)} bytes")
+        except Exception as e:
+            logger.error(f"Failed to serialize payload: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Failed to serialize request payload: {str(e)}")
 
         try:
             logger.info(f"Invoking Lambda function: {function_name}")
             response = lambda_client.invoke(
                 FunctionName=function_name,
                 InvocationType="RequestResponse",
-                Payload=json.dumps(payload).encode("utf-8"),
+                Payload=payload_json.encode("utf-8"),
             )
 
             response_payload = json.loads(response["Payload"].read())
