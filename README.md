@@ -4,6 +4,8 @@
 
 # PolySynergy Router
 
+> 🚀 **Get Started**: This is part of the [PolySynergy Orchestrator](https://github.com/dionsnoeijen/polysynergy-orchestrator) - a visual workflow automation platform. Start there to set up the complete system and begin building AI agent workflows.
+
 A high-performance, dynamic routing service built with FastAPI that serves as the main entry point for PolySynergy applications. The router automatically routes incoming HTTP requests to the appropriate backend services based on subdomain-based project and stage identification.
 
 ## 🚀 Overview
