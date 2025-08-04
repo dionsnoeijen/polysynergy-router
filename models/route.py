@@ -19,7 +19,7 @@ class Route(BaseModel):
 class SingleRouteUpdate(BaseModel):
     project_id: str
     tenant_id: str
-    stage: str
+    stage: str | None = None
     route: Route
 
 class RouteRef(BaseModel):

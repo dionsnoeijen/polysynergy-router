@@ -18,13 +18,29 @@ table = dynamodb.Table(DYNAMODB_ROUTING_TABLE)
 
 @router.post("/update-route")
 def update_route(data: SingleRouteUpdate):
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
+        logger.info(f"Received update-route request: project_id={data.project_id}, stage={data.stage}")
+        logger.info(f"Route data: id={data.route.id}, method={data.route.method}")
+        logger.info(f"Route active_stages: {getattr(data.route, 'active_stages', None)}")
+        
         pk = f"routing#{data.project_id}"
         sk = f"route#{data.route.id}"
 
         existing = table.get_item(Key={"PK": pk, "SK": sk}).get("Item", {})
+        logger.info(f"Existing DynamoDB item: {existing}")
+        
         active_stages = set(existing.get("active_stages", []))
-        active_stages.add(data.stage)
+        logger.info(f"Current active_stages from DB: {active_stages}")
+        
+        if data.stage:
+            active_stages.add(data.stage)
+            logger.info(f"Added stage '{data.stage}', new active_stages: {active_stages}")
+        elif hasattr(data.route, 'active_stages') and data.route.active_stages:
+            active_stages.update(data.route.active_stages)
+            logger.info(f"Updated with route active_stages: {data.route.active_stages}, new active_stages: {active_stages}")
 
         item = {
             "PK": pk,
@@ -36,12 +52,14 @@ def update_route(data: SingleRouteUpdate):
             "tenant_id": data.tenant_id,
             "active_stages": list(active_stages),
         }
+        logger.info(f"Writing item to DynamoDB: {item}")
         table.put_item(Item=item)
 
         routing_cache.pop((data.project_id, data.stage), None)
 
         return {"message": "Route updated successfully."}
     except Exception as e:
+        logger.error(f"Error in update_route: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update route: {str(e)}")
 
 @router.post("/deactivate-route")
