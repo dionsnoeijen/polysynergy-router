@@ -46,6 +46,10 @@ def parse_subdomain(host: str) -> tuple[str, str]:
 
 @router.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def catch_all_router(request: Request, full_path: str):
+    # Skip subdomain parsing for internal routes
+    if full_path.startswith("__internal/"):
+        logger.info(f"Skipping internal route: {request.method} {full_path}")
+        raise HTTPException(status_code=404, detail="Internal route not found")
     logger.info(f"Incoming request: {request.method} {full_path}")
     logger.debug(f"Headers: {dict(request.headers)}")
     
