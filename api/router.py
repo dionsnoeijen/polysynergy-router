@@ -135,7 +135,7 @@ async def catch_all_router(request: Request, full_path: str):
             if status_code >= 400:
                 logger.error(f"Lambda returned error status {status_code}, body: {body}")
             else:
-                logger.debug(f"Lambda response body: {body[:200]}...")  # First 200 chars
+                logger.debug(f"Lambda response body: {str(body)[:200]}...")  # First 200 chars
 
             content_type = headers.get("Content-Type", "text/plain")
 

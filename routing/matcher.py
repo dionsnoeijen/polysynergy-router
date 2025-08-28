@@ -13,8 +13,10 @@ def convert_segments_to_regex(segments: List[Segment]) -> str:
     
     for segment in segments:
         if segment.type == "static":
-            regex_parts.append(re.escape(segment.name))
-            segment_descriptions.append(f"static:'{segment.name}'")
+            # Skip empty segments (which can occur from leading slashes)
+            if segment.name:
+                regex_parts.append(re.escape(segment.name))
+                segment_descriptions.append(f"static:'{segment.name}'")
         elif segment.type == "variable":
             segment_descriptions.append(f"var:{segment.name}({segment.variable_type})")
             match segment.variable_type:
@@ -27,7 +29,12 @@ def convert_segments_to_regex(segments: List[Segment]) -> str:
                 case _:
                     raise ValueError(f"Unsupported variable_type: {segment.variable_type}")
     
-    pattern = "^" + "/".join(regex_parts) + "$"
+    # Handle empty regex_parts (would happen if all segments were empty)
+    if not regex_parts:
+        pattern = "^$"
+    else:
+        pattern = "^" + "/".join(regex_parts) + "$"
+    
     logger.debug(f"Converted segments [{', '.join(segment_descriptions)}] to regex: {pattern}")
     return pattern
 
