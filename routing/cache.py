@@ -4,17 +4,35 @@ import boto3
 import os
 
 from models.route import Route
+from core.config import (
+    AWS_REGION,
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
+    DYNAMODB_ROUTING_TABLE,
+    DYNAMODB_LOCAL_ENDPOINT
+)
 from core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-dynamodb = boto3.resource(
-    "dynamodb",
-    region_name=os.getenv("AWS_REGION", "eu-central-1"),
-    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-)
-table = dynamodb.Table("poly_router_routing")
+# Initialize DynamoDB client with optional local endpoint
+dynamodb_config = {
+    "region_name": AWS_REGION,
+}
+
+# Use local endpoint if configured (self-hosted mode)
+if DYNAMODB_LOCAL_ENDPOINT:
+    dynamodb_config["endpoint_url"] = DYNAMODB_LOCAL_ENDPOINT
+    # DynamoDB Local doesn't validate credentials
+    dynamodb_config["aws_access_key_id"] = "dummy"
+    dynamodb_config["aws_secret_access_key"] = "dummy"
+    logger.info(f"Using DynamoDB Local at {DYNAMODB_LOCAL_ENDPOINT}")
+elif AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    dynamodb_config["aws_access_key_id"] = AWS_ACCESS_KEY_ID
+    dynamodb_config["aws_secret_access_key"] = AWS_SECRET_ACCESS_KEY
+
+dynamodb = boto3.resource("dynamodb", **dynamodb_config)
+table = dynamodb.Table(DYNAMODB_ROUTING_TABLE)
 
 routing_cache: dict[tuple[str, str], List[Route]] = {}
 

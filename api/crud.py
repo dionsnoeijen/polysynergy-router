@@ -2,18 +2,35 @@ from fastapi import HTTPException, APIRouter
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from core.config import AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DYNAMODB_ROUTING_TABLE
+from core.config import (
+    AWS_REGION,
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
+    DYNAMODB_ROUTING_TABLE,
+    DYNAMODB_LOCAL_ENDPOINT,
+    ROUTER_LOCAL_MODE
+)
 from models.route import SingleRouteUpdate, DeactivateRouteRequest, DeleteRouteRequest
 from routing.cache import routing_cache
 
 router = APIRouter()
 
-dynamodb = boto3.resource(
-    "dynamodb",
-    region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-)
+# Initialize DynamoDB client with optional local endpoint
+dynamodb_config = {
+    "region_name": AWS_REGION,
+}
+
+# Use local endpoint if configured (self-hosted mode)
+if DYNAMODB_LOCAL_ENDPOINT:
+    dynamodb_config["endpoint_url"] = DYNAMODB_LOCAL_ENDPOINT
+    # DynamoDB Local doesn't validate credentials
+    dynamodb_config["aws_access_key_id"] = "dummy"
+    dynamodb_config["aws_secret_access_key"] = "dummy"
+elif AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    dynamodb_config["aws_access_key_id"] = AWS_ACCESS_KEY_ID
+    dynamodb_config["aws_secret_access_key"] = AWS_SECRET_ACCESS_KEY
+
+dynamodb = boto3.resource("dynamodb", **dynamodb_config)
 table = dynamodb.Table(DYNAMODB_ROUTING_TABLE)
 
 @router.post("/update-route")

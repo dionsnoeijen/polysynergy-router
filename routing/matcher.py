@@ -31,10 +31,10 @@ def convert_segments_to_regex(segments: List[Segment]) -> str:
     
     # Handle empty regex_parts (would happen if all segments were empty)
     if not regex_parts:
-        pattern = "^$"
+        pattern = "^/$"
     else:
-        pattern = "^" + "/".join(regex_parts) + "$"
-    
+        pattern = "^/" + "/".join(regex_parts) + "$"
+
     logger.debug(f"Converted segments [{', '.join(segment_descriptions)}] to regex: {pattern}")
     return pattern
 
