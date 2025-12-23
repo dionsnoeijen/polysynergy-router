@@ -40,12 +40,61 @@ else:
     logger.info(f"Router initialized in SELF-HOSTED mode (using local API at {LOCAL_API_ENDPOINT})")
 
 
+async def proxy_to_api_local(request: Request, full_path: str) -> Response:
+    """Proxy requests to api_local service (for public API endpoints like embedded chat)."""
+    try:
+        # Build the target URL
+        url = f"{LOCAL_API_ENDPOINT}/{full_path}"
+
+        # Get request body if present
+        body = None
+        if request.method in ["POST", "PUT", "PATCH"]:
+            body = await request.body()
+
+        # Forward headers (excluding hop-by-hop headers)
+        headers = {
+            key: value for key, value in request.headers.items()
+            if key.lower() not in ["host", "content-length", "transfer-encoding"]
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.request(
+                method=request.method,
+                url=url,
+                headers=headers,
+                content=body,
+                params=dict(request.query_params),
+            )
+
+            logger.info(f"Proxied to api_local: {response.status_code}")
+
+            # Return response preserving headers
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.headers.get("content-type", "application/json")
+            )
+
+    except httpx.TimeoutException:
+        logger.error("Proxy to api_local timed out")
+        raise HTTPException(status_code=504, detail="API timeout")
+    except httpx.RequestError as e:
+        logger.error(f"Proxy to api_local failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"API error: {str(e)}")
+
+
 @router.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def catch_all_router(request: Request, full_path: str):
     # Skip subdomain parsing for internal routes
     if full_path.startswith("__internal/"):
         logger.info(f"Skipping internal route: {request.method} {full_path}")
         raise HTTPException(status_code=404, detail="Internal route not found")
+
+    # Proxy /api/v1/public/* requests to api_local (for embedded chat, etc.)
+    if full_path.startswith("api/v1/public/"):
+        logger.info(f"Proxying public API request: {request.method} /{full_path}")
+        return await proxy_to_api_local(request, full_path)
 
     logger.info(f"Incoming request: {request.method} /{full_path}")
     logger.debug(f"Headers: {dict(request.headers)}")
