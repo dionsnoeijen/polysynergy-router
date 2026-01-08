@@ -241,7 +241,117 @@ class TestMatchRoute:
         # Should match UUID format
         result = match_route("users/550e8400-e29b-41d4-a716-446655440000", "GET", routes)
         assert result is not None
-        
+
         # Should not match non-UUID
         result = match_route("users/123", "GET", routes)
         assert result is None
+
+
+class TestMultipleMethodsSupport:
+    """Tests for multiple HTTP methods per route (backwards compatible)."""
+
+    def test_single_method_as_string(self):
+        """Existing routes with method as string should still work."""
+        routes = [
+            Route(
+                id="route1",
+                method="GET",  # Single method as string
+                require_api_key=False,
+                segments=[Segment(type="static", name="api")],
+                node_setup_version_id="v1",
+                tenant_id="tenant1"
+            )
+        ]
+        result = match_route("/api", "GET", routes)
+        assert result is not None
+        assert result["route_id"] == "route1"
+
+    def test_single_method_as_string_no_match(self):
+        """Single method as string should not match other methods."""
+        routes = [
+            Route(
+                id="route1",
+                method="GET",
+                require_api_key=False,
+                segments=[Segment(type="static", name="api")],
+                node_setup_version_id="v1",
+                tenant_id="tenant1"
+            )
+        ]
+        result = match_route("/api", "POST", routes)
+        assert result == "method_not_allowed"
+
+    def test_multiple_methods_as_list(self):
+        """Route with multiple methods should match all listed methods."""
+        routes = [
+            Route(
+                id="route1",
+                method=["GET", "POST"],  # Multiple methods as list
+                require_api_key=False,
+                segments=[Segment(type="static", name="webhooks")],
+                node_setup_version_id="v1",
+                tenant_id="tenant1"
+            )
+        ]
+        # GET should match
+        result = match_route("/webhooks", "GET", routes)
+        assert result is not None
+        assert result["route_id"] == "route1"
+
+        # POST should also match
+        result = match_route("/webhooks", "POST", routes)
+        assert result is not None
+        assert result["route_id"] == "route1"
+
+    def test_multiple_methods_no_match_unlisted_method(self):
+        """Route with multiple methods should not match unlisted methods."""
+        routes = [
+            Route(
+                id="route1",
+                method=["GET", "POST"],
+                require_api_key=False,
+                segments=[Segment(type="static", name="webhooks")],
+                node_setup_version_id="v1",
+                tenant_id="tenant1"
+            )
+        ]
+        # DELETE is not in the list
+        result = match_route("/webhooks", "DELETE", routes)
+        assert result == "method_not_allowed"
+
+    def test_multiple_methods_case_insensitive(self):
+        """Method matching should be case insensitive."""
+        routes = [
+            Route(
+                id="route1",
+                method=["GET", "post"],  # Mixed case
+                require_api_key=False,
+                segments=[Segment(type="static", name="api")],
+                node_setup_version_id="v1",
+                tenant_id="tenant1"
+            )
+        ]
+        # Lowercase should match
+        result = match_route("/api", "get", routes)
+        assert result is not None
+
+        # Uppercase should match
+        result = match_route("/api", "POST", routes)
+        assert result is not None
+
+    def test_all_crud_methods(self):
+        """Route can support all CRUD methods."""
+        routes = [
+            Route(
+                id="route1",
+                method=["GET", "POST", "PUT", "PATCH", "DELETE"],
+                require_api_key=False,
+                segments=[Segment(type="static", name="resources")],
+                node_setup_version_id="v1",
+                tenant_id="tenant1"
+            )
+        ]
+        for method in ["GET", "POST", "PUT", "PATCH", "DELETE"]:
+            result = match_route("/resources", method, routes)
+            assert result is not None
+            assert result["route_id"] == "route1"

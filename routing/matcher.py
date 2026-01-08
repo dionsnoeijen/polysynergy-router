@@ -53,8 +53,14 @@ def match_route(path: str, method: str, routes: List[Route]) -> Optional[Dict] |
         if match:
             logger.debug(f"Path '{path}' matched route '{route.id}' pattern '{pattern}'")
             path_matched = True
-            
-            if route.method.upper() == method:
+
+            # Support both single method (string) and multiple methods (list)
+            if isinstance(route.method, str):
+                route_methods = [route.method.upper()]
+            else:
+                route_methods = [m.upper() for m in route.method]
+
+            if method in route_methods:
                 variables = match.groupdict()
                 logger.info(f"✓ Route matched: '{route.id}' with variables: {variables}")
                 return {

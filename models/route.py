@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Literal, List, Optional
+from typing import Literal, List, Optional, Union
 
 
 class Segment(BaseModel):
@@ -9,7 +9,7 @@ class Segment(BaseModel):
 
 class Route(BaseModel):
     id: str
-    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
+    method: Union[str, List[str]]  # Single method or list of methods (backwards compatible)
     require_api_key: bool
     segments: List[Segment]
     node_setup_version_id: str

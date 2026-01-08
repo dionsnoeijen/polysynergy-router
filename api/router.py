@@ -150,11 +150,13 @@ async def catch_all_router(request: Request, full_path: str):
         headers_dict = {key: value for key, value in request.headers.items()}
         query_dict = {key: value for key, value in request.query_params.items()}
 
+        logger.info(f"Query params: {query_dict}")
+
         payload = {
             "path": actual_path,
             "method": request.method,
             "headers": headers_dict,
-            "query": query_dict,
+            "query_params": query_dict,
             "variables": matched["variables"],
             "project_id": project_id,
             "stage": stage,
