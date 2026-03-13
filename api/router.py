@@ -1,9 +1,11 @@
+import asyncio
 import boto3
 import json
 import os
 import httpx
+import websockets
 
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.routing import APIRouter
 from fastapi.responses import JSONResponse, Response
 from botocore.config import Config
@@ -57,7 +59,7 @@ async def proxy_to_api_local(request: Request, full_path: str) -> Response:
             if key.lower() not in ["host", "content-length", "transfer-encoding"]
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.request(
                 method=request.method,
                 url=url,
@@ -82,6 +84,79 @@ async def proxy_to_api_local(request: Request, full_path: str) -> Response:
     except httpx.RequestError as e:
         logger.error(f"Proxy to api_local failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=502, detail=f"API error: {str(e)}")
+
+
+@router.websocket("/ws/{full_path:path}")
+async def websocket_proxy(websocket: WebSocket, full_path: str):
+    """Proxy WebSocket connections to api_local service (for embedded chat, etc.)."""
+    # Build upstream WebSocket URL
+    upstream_base = LOCAL_API_ENDPOINT.replace("http://", "ws://").replace("https://", "wss://")
+
+    # Forward query parameters
+    query_string = websocket.scope.get("query_string", b"").decode("utf-8")
+    upstream_url = f"{upstream_base}/ws/{full_path}"
+    if query_string:
+        upstream_url += f"?{query_string}"
+
+    logger.info(f"Proxying WebSocket: /ws/{full_path} -> {upstream_url}")
+
+    try:
+        async with websockets.connect(upstream_url) as upstream_ws:
+            await websocket.accept()
+
+            async def client_to_upstream():
+                """Forward messages from client to upstream."""
+                try:
+                    while True:
+                        data = await websocket.receive_text()
+                        await upstream_ws.send(data)
+                except WebSocketDisconnect:
+                    logger.info(f"Client disconnected: /ws/{full_path}")
+                except Exception as e:
+                    logger.error(f"Client->upstream error: {e}")
+
+            async def upstream_to_client():
+                """Forward messages from upstream to client."""
+                try:
+                    async for message in upstream_ws:
+                        if isinstance(message, str):
+                            await websocket.send_text(message)
+                        else:
+                            await websocket.send_bytes(message)
+                except websockets.ConnectionClosed:
+                    logger.info(f"Upstream disconnected: /ws/{full_path}")
+                except Exception as e:
+                    logger.error(f"Upstream->client error: {e}")
+
+            # Run both directions concurrently
+            done, pending = await asyncio.wait(
+                [
+                    asyncio.create_task(client_to_upstream()),
+                    asyncio.create_task(upstream_to_client()),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            # Cancel remaining tasks
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+    except ConnectionRefusedError:
+        logger.error(f"Upstream WebSocket connection refused: {upstream_url}")
+        try:
+            await websocket.close(code=1011, reason="Upstream connection refused")
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error(f"WebSocket proxy error: {e}")
+        try:
+            await websocket.close(code=1011, reason="Proxy error")
+        except Exception:
+            pass
 
 
 @router.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -198,7 +273,7 @@ async def execute_local(payload: dict, payload_json: str) -> Response:
     logger.info(f"Executing via local API at {LOCAL_API_ENDPOINT}")
 
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
             response = await client.post(
                 f"{LOCAL_API_ENDPOINT}/api/v1/execution/route/",
                 json=payload,
